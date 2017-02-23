@@ -1,0 +1,176 @@
+<?php
+/**
+ * @file
+ */
+
+/**
+ * Class PerformanceTestCase.
+ *
+ * Exposes multiple test cases around performances.
+ */
+class PerformanceTestCase extends AuditTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Performances',
+      'description' => 'Tests around performances.',
+      'group' => 'Audit'
+    );
+  }
+
+  /**
+   * Check if Fast404 module is enabled and configured.
+   */
+  function testFast404() {
+    $this->assertTrue(
+      module_exists('fast_404'),
+      array(
+        'pass' => 'Module fast_404 is enabled.',
+        'fail' => 'Module fast_404 is not enabled.',
+      ),
+      'Performance'
+    );
+
+    if (!module_exists('fast_404')) {
+      return;
+    }
+
+    $fast_404_exts = variable_get('fast_404_exts', '');
+    $exts = array('txt', 'png', 'gif', 'css', 'js', 'ico', 'html', 'xml');
+    $missing = array();
+    foreach ($exts as $ext) {
+      if (strpos($fast_404_exts, $ext) === FALSE) {
+        $missing[] = $ext;
+      }
+    }
+
+    $this->assertTrue(
+      empty($missing),
+      array(
+        'pass' => 'Fast 404 is properly configured regarding extensions to bypass Drupal.',
+        'fail' => format_plural(count($missing), 'Extension <strong>' . implode(', ', $missing) . '</strong> is', 'Extensions <strong>' . implode(', ', $missing) . '</strong> are') . ' missing from Fast 404 configuration.'
+      ),
+      'Performance'
+    );
+
+  }
+
+  /**
+   * Check if Drupal Cron is disabled.
+   */
+  function testCronStatus() {
+    $this->assertFalse(
+      variable_get('cron_safe_threshold', DRUPAL_CRON_DEFAULT_THRESHOLD),
+      array(
+        'pass' => 'Default core cron is disabled.',
+        'fail' => 'Default core cron is enabled and running every <strong>' . variable_get('cron_safe_threshold', DRUPAL_CRON_DEFAULT_THRESHOLD) . ' seconds</strong>.',
+      ),
+      'Performance'
+    );
+  }
+
+  /**
+   * Check if block caching is enabled.
+   */
+  function testBlockCacheStatus() {
+    $this->assertTrue(
+      variable_get('block_cache', 0),
+      array(
+        'pass' => 'Block caching is enabled.',
+        'fail' => 'Block caching is not enabled.',
+      ),
+      'Performance'
+    );
+  }
+
+  /**
+   * Check if page caching is enabled.
+   */
+  function testPageCacheStatus() {
+    $this->assertTrue(
+      variable_get('cache', 0),
+      array(
+        'pass' => 'Page caching is enabled.',
+        'fail' => 'Page caching is not enabled.',
+      ),
+      'Performance'
+    );
+  }
+
+  /**
+   * Check default cache lifetime.
+   */
+  function testCacheLifetime() {
+    $this->assertTrue(
+      variable_get('cache_lifetime', 0) >= 3600,
+      array(
+        'pass' => 'Default cache lifetime is greater than 1 hour (' . variable_get('cache_lifetime', 0) . ').',
+        'fail' => 'Default cache lifetime is only ' . variable_get('cache_lifetime', 0) . ' seconds.',
+      ),
+      'Performance'
+    );
+
+    $this->assertTrue(
+      variable_get('page_cache_maximum_age', 0) >= 3600,
+      array(
+        'pass' => 'Page cache maximum age is greater than 1 hour (' . variable_get('page_cache_maximum_age', 0) . ').',
+        'fail' => 'Page cache maximum age is only ' . variable_get('page_cache_maximum_age', 0) . ' seconds.',
+      ),
+      'Performance'
+    );
+  }
+
+  /**
+   * Check if JS/CSS aggregation is enabled.
+   */
+  function testJsCssAggregation() {
+    $this->assertTrue(
+      variable_get('preprocess_css', 0),
+      array(
+        'pass' => 'CSS aggregation is enabled.',
+        'fail' => 'CSS aggregation is not enabled.',
+      ),
+      'Performance'
+    );
+
+    $this->assertTrue(
+      variable_get('preprocess_js', 0),
+      array(
+        'pass' => 'JS aggregation is enabled.',
+        'fail' => 'JS aggregation is not enabled.',
+      ),
+      'Performance'
+    );
+
+    $this->assertTrue(
+      module_exists('advagg'),
+      array(
+        'pass' => 'Module Advanced Aggregation is enabled.',
+        'fail' => 'Module Advanced Aggregation is not enabled.',
+      ),
+      'Performance'
+    );
+  }
+
+  /**
+   * Check if Memcache is enabled and configured.
+   */
+  function testMemcache() {
+    $this->assertTrue(
+      variable_get('cache_default_class', 'DrupalDatabaseCache') == 'MemCacheDrupal',
+      array(
+        'pass' => 'Default cache backend is Memcache.',
+        'fail' => 'Default cache backend is not Memcache (currently <strong>' . variable_get('cache_default_class', 'DrupalDatabaseCache') . '</strong>).',
+      ),
+      'Performance'
+    );
+
+    $this->assertTrue(
+      variable_get('cache_class_cache_form', variable_get('cache_default_class', 'DrupalDatabaseCache')) == 'DrupalDatabaseCache',
+      array(
+        'pass' => 'Default cache form backend is the database.',
+        'fail' => 'Default cache form backend is not the database (currently <strong>' . variable_get('cache_class_cache_form', variable_get('cache_default_class', 'DrupalDatabaseCache')) . '</strong>).',
+      ),
+      'Performance'
+    );
+  }
+}

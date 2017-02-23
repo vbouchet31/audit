@@ -1,0 +1,97 @@
+<?php
+/**
+ * @file
+ */
+
+/**
+ * Class FieldsTestCase.
+ * 
+ * Exposes multiple test cases around field configuration, status, etc.
+ *
+ * @TODO:
+ * - Check "duplicated" field instances (same configuration, only name differs).
+ */
+class FieldsTestCase extends AuditTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Fields',
+      'description' => 'Tests around fields definition.',
+      'group' => 'Audit'
+    );
+  }
+
+  /**
+   * Check if any field base is not related to any bundle.
+   */
+  function testOrphanFieldBase() {
+    $orphans = array();
+    foreach (field_info_fields() as $field_name => $field_info) {
+      if (empty($field_info['bundles'])) {
+        $orphans[] = $field_name;
+      }
+    };
+
+    $this->assertTrue(
+      empty($orphans),
+      array(
+        'pass' => 'All field bases have related field instance.',
+        'fail' => format_plural(count($orphans), 'Field base <strong>' . implode(', ', $orphans) . '</strong> is orphan.', 'Field bases <strong>' . implode(', ', $orphans) . '</strong> are orphans.')
+      ),
+      'Fields'
+    );
+  }
+
+  /**
+   * Check if any field is flagged inactive or deleted in the db.
+   */
+  function testBrokenField() {
+    $include_additional['include_inactive'] = TRUE;
+    $include_additional['include_deleted'] = TRUE;
+    $fields_with_broken = field_read_fields(array(), $include_additional);
+
+    $fields = field_read_fields();
+
+    $brokens = array();
+    foreach ($fields_with_broken as $field) {
+      if (!isset($fields[$field['field_name']])) {
+        $brokens[] = $field['field_name'];
+      }
+    }
+
+    $this->assertTrue(
+      empty($brokens),
+      array(
+        'pass' => 'No broken field.',
+        'fail' => format_plural(count($brokens), 'Field <strong>' . implode(', ', $brokens) . '</strong> is broken.', 'Fields <strong>' . implode(', ', $brokens) . '</strong> are broken.')
+      ),
+      'Fields'
+    );
+  }
+
+  /**
+   * Check if any field does not contain any data.
+   */
+  function testUnusedField() {
+    $fields = array_keys(field_info_fields());
+
+    $unused = array();
+    foreach ($fields as $field) {
+      $count = db_query(
+        "SELECT count(*) FROM {field_data_$field}"
+      )->fetchCol()[0];
+
+      if(empty($count)) {
+        $unused[] = $field;
+      }
+    }
+
+    $this->assertTrue(
+      empty($unused),
+      array(
+        'pass' => 'All fields are used.',
+        'fail' => format_plural(count($unused), 'Field <strong>' . implode(', ', $unused) . '</strong> is not used.', 'Fields <strong>' . implode(', ', $unused) . '</strong> are not used.')
+      ),
+      'Fields'
+    );
+  }
+}

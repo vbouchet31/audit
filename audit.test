@@ -1,0 +1,42 @@
+<?php
+
+
+/**
+ * @file
+ * Helper test case to run test on the Drupal website instead of a copy.
+ */
+
+/**
+ * Clone existing Drupal instance.
+ */
+class AuditTestCase extends DrupalWebTestCase {
+
+  /**
+   * Override the default setup as we don't want to run a test environment.
+   */
+  function setUp() {
+    $this->setup = TRUE;
+  }
+
+
+  /**
+   * We don't have anything to do as we have not changed anything.
+   */
+  function tearDown() {}
+
+  /**
+   *
+   */
+  function assert($status, $message = array(), $group = 'Other', array $caller = NULL) {
+    // Convert boolean status to string status.
+    if (is_bool($status)) {
+      $status = $status ? 'pass' : 'fail';
+    }
+
+    if (is_array($message) && isset($message[$status])) {
+      $message = $message[$status];
+    }
+
+    parent::assert($status, $message, $group, $caller);
+  }
+}

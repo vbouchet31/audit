@@ -1,0 +1,285 @@
+<?php
+/**
+ * @file
+ */
+
+/**
+ * Class SecurityTestCase.
+ *
+ * Exposes multiple test cases around security by checking roles, permissions,
+ * menu access, https and more.
+ */
+class SecurityTestCase extends AuditTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Security',
+      'description' => 'Tests around security (users, roles, access).',
+      'group' => 'Audit'
+    );
+  }
+
+  /**
+   * Check if the superadmin (uid:1) is blocked.
+   */
+  function testFirstUserDisabled() {
+    $user = user_load(1);
+
+    $this->assertFalse(
+      $user->status,
+      array(
+        'pass' => 'Superadmin is disabled',
+        'fail' => 'Superadmin is not disabled'
+      ),
+      'Security'
+    );
+  }
+
+  /**
+   * Check if the superadmin username is admin or even contains admin.
+   */
+  public function testSuperAdminUsername() {
+    $user = user_load(1);
+
+    $this->assertTrue(
+      $user->name !=='admin',
+      array(
+        'fail' => 'Superadmin username is admin',
+        'pass' => 'Superadmin username is not admin',
+      ),
+      'Seurity'
+    );
+
+    $this->assertTrue(
+      strpos($user->name, 'admin') === FALSE,
+      array(
+        'fail' => 'Superadmin username contains admin',
+        'pass' => 'Superadmin username does not contain admin',
+      ),
+      'Security'
+    );
+  }
+
+  /**
+   * Check if the superadmin's password is admin.
+   */
+  public function testSuperAdminPassword() {
+    $user = user_load(1);
+
+    require_once DRUPAL_ROOT . '/' . variable_get('password_inc', 'includes/password.inc');
+    $this->assertFalse(
+      user_check_password('admin', $user),
+      array(
+        'pass' => 'Superadmin password is not admin',
+        'fail' => 'Superadmin password is admin',
+      ),
+      'Security'
+    );
+  }
+
+  /**
+   * Test the number of users with the "admin" role.
+   */
+  public function testNumberOfAdmin() {
+    $nb = db_query('SELECT COUNT(*) AS ct FROM {users_roles} WHERE rid = 3')->fetchField();
+    $this->assertTrue(
+      $nb == 1,
+      array(
+        'pass' => 'Only superadmin has the admin role',
+        'fail' => 'Multiple users have the admin role',
+      ),
+      'Security'
+    );
+  }
+
+  /**
+   * Test if HTTPS is configured.
+   */
+  public function testHTTPS() {
+    $this->assertTrue(
+      variable_get('https', FALSE),
+      array(
+        'pass' => 'HTTPS is enabled.',
+        'fail' => 'HTTPS is not enabled.'
+      ),
+      'HTTPS'
+    );
+  }
+
+  /**
+   * Test if securepages module is enabled and configured to protect user/login.
+   */
+  public function testSecurePages() {
+    $this->assertTrue(
+      module_exists('securepages'),
+      array(
+        'pass' => 'Module securepages is enabled.',
+        'fail' => 'Module securepages is not enabled.',
+      ),
+      'Securepages'
+    );
+
+    if (module_exists('securepages')) {
+      // Check if the module has been set up correctly.
+      $this->assertTrue(
+        variable_get('securepages_enable', 0),
+        array(
+          'pass' => 'Module securepages is configured as enabled.',
+          'fail' => 'Module securepages is configured as disabled.',
+        ),
+        'Securepages'
+      );
+
+      $this->assertTrue(
+        securepages_match('user/login'),
+        array(
+          'pass' => 'Securepages is configured on user/login',
+          'fail' => 'Securepages is not configured on user/login',
+        ),
+        'Securepages'
+      );
+    }
+  }
+
+  /**
+   * Test if module securelogin is enabled.
+   */
+  public function testSecureLogin() {
+    $this->assertTrue(
+      module_exists('securelogin'),
+      array(
+        'pass' => 'Module securelogin is enabled.',
+        'fail' => 'Module securelogin is not enabled.',
+      ),
+      'Securelogin'
+    );
+  }
+
+  /**
+   * Test if registration is wide open.
+   */
+  public function testRegistrationConfiguration() {
+    $this->assertTrue(
+      USER_REGISTER_VISITORS != variable_get('user_register', USER_REGISTER_VISITORS_ADMINISTRATIVE_APPROVAL),
+      array(
+        'pass' => 'Registration requires admin approval.',
+        'fail' => 'Registration is open to the public.'
+      ),
+      'Registration'
+    );
+  }
+
+  /**
+   * Test if password policy is enabled and properly configured.
+   */
+  public function testPasswordPolicy() {
+    $this->assertTrue(
+      module_exists('password_policy'),
+      array(
+        'pass' => 'Module password policy is enabled.',
+        'fail' => 'Module password policy is not enabled.'
+      ),
+      'Password Policy'
+    );
+
+    if (module_exists('password_policy')) {
+      $pids = db_select('password_policy', 'p')
+        ->fields('p', array('pid'))
+        ->execute()
+        ->fetchCol();
+
+      $policies = array();
+      foreach ($pids as $pid) {
+        $policies[$pid] = password_policy_policy_load($pid);
+      }
+
+      $enabled = 0;
+      foreach ($policies as &$policy) {
+        if ($policy['enabled']) {
+          $enabled++;
+        }
+      }
+
+      $this->assertTrue(
+        $enabled,
+        array(
+          'pass' => $enabled . format_plural($enabled, 'password policy exists and is enabled.', 'password policies exist and are enabled.'),
+          'fail' => 'No password policy is configured or enabled.',
+        ),
+        'Password Policy'
+      );
+
+      $roles = user_roles(TRUE);
+
+      foreach ($policies as $policy) {
+        if ($policy['enabled']) {
+          foreach ($policy['roles'] as $rid) {
+            unset($roles[$rid]);
+          }
+        }
+      }
+
+      $this->assertTrue(
+        empty($roles),
+        array(
+          'pass' => 'All roles have a password policy configured.',
+          'fail' => format_plural(count($roles), 'Role ' . implode(', ', $roles) . ' does not have a password policy configured.', 'Roles ' . implode(', ', $roles) . ' don\'t have a password policy configured.')
+        ),
+        'Password Policy'
+      );
+    }
+  }
+
+  /**
+   * Test if PHP errors and warnings are displayed.
+   */
+  public function testErrorLevel() {
+    $this->assertTrue(
+      variable_get('error_level', ERROR_REPORTING_DISPLAY_ALL) == ERROR_REPORTING_HIDE,
+      array(
+        'pass' => 'PHP errors and warnings are not displayed',
+        'fail' => 'PHP errors and warnings are displayed.'
+      ),
+      'PHP Errors'
+    );
+  }
+
+  /**
+   * Test if any menu lack access control (use access_callback=TRUE or NULL).
+   */
+  public function testMenuAccess() {
+    $safe_paths = array(
+      'admin/config/search/clean-urls/check',
+      'batch',
+      'filter/tips',
+      variable_get('file_public_path', conf_path() . '/files') . '/styles/%',
+      'system/ajax',
+      'system/files',
+      'system/files/styles/%',
+      'system/temporary',
+      'system/timezone',
+      'user',
+      'user/password',
+      'user/reset/%/%/%',
+      'views/ajax',
+      'token/autocomplete/%',
+      'token/tree',
+    );
+
+    $query = db_query('SELECT path, page_callback
+    FROM {menu_router}
+    WHERE path NOT IN (:safe_paths) AND (access_callback = 1 OR access_callback = NULL)',
+      array(':safe_paths' => $safe_paths)
+    );
+    $callbacks = $query->fetchAllKeyed();
+    $count = $query->rowCount();
+
+    $this->assertTrue(
+      $count == 0,
+      array(
+        'pass' => 'No menu item lacks proper access callback.',
+        'fail' => implode(', ', array_keys($callbacks)) . format_plural($count, ' lacks', 'lack') . ' proper access callback (currently TRUE or NULL).',
+      ),
+      'Menu access'
+    );
+  }
+}

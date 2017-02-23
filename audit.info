@@ -1,0 +1,10 @@
+name = Audit
+description = "Audit a website using Simpletest"
+core = 7.x
+package = Audit
+files[] = tests/fields.test
+files[] = tests/modules.test
+files[] = tests/security.test
+files[] = tests/performance.test
+files[] = audit.test
+dependencies[] = "simpletest"

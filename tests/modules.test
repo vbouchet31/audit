@@ -1,0 +1,238 @@
+<?php
+/**
+ * @file
+ */
+
+/**
+ * Class ModulesTestCase.
+ *
+ * Exposes multiple tests cases around enabled modules, status, updates, etc.
+ *
+ * @TODO:
+ *  - Check modules with security update pending.
+ *  - Check modules with "normal" update pending.
+ *  - Check "hacked" modules.
+ */
+class ModulesTestCase extends AuditTestCase {
+  public static function getInfo() {
+    return array(
+      'name' => 'Modules',
+      'description' => 'Tests around module status.',
+      'group' => 'Audit'
+    );
+  }
+
+  /**
+   * Check if some modules known potential issue on production are disabled.
+   */
+  public function testProblematicModules() {
+    $modules = array(
+      'update',
+      'hacked',
+      'php',
+      'dblog',
+      'statistic',
+      'views_php',
+      'migrate',
+      'search404',
+    );
+
+    $enabled = $this->enabledModules($modules);
+
+
+    $this->assertTrue(
+      empty($enabled),
+      array(
+        'pass' => 'No problematic module enabled.',
+        'fail' => format_plural(count($enabled), 'Problematic module <strong>' . implode(', ', $enabled) . '</strong> is enabled.', 'Problematic modules <strong>' . implode(', ', $enabled) . '</strong> are enabled.')
+      ),
+      'Problematic Modules'
+    );
+  }
+
+  /**
+   * Check if UI modules (Views UI, Field UI, ...) are disabled.
+   */
+  public function testUIModules() {
+    $modules = array(
+      'views_ui',
+      'field_ui',
+      'rules_admin',
+      'ds_ui',
+      'migrate_ui',
+      'context_ui',
+      'queue_ui',
+      'feeds_ui',
+      'memcache_admin',
+      'variable_admin',
+    );
+
+    $enabled = $this->enabledModules($modules);
+
+
+    $this->assertTrue(
+      empty($enabled),
+      array(
+        'pass' => 'No UI module enabled.',
+        'fail' => format_plural(count($enabled), 'UI module <strong>' . implode(', ', $enabled) . '</strong> is enabled.', 'UI modules <strong>' . implode(', ', $enabled) . '</strong> are enabled.')
+      ),
+      'UI Modules'
+    );
+
+    // @TODO: Write sql query to get all *ui* / *admin* modules; Remove modules which are
+    // already part of the previous list.
+  }
+
+  /**
+   * Check if developer modules (devel, coder, ...) are disabled.
+   */
+  public function testDevelopmentModules() {
+    $modules = array(
+      'devel',
+      'coder',
+      'stage_file_proxy',
+      'devel_theme',
+      'devel_generate',
+      'module_filter',
+      'filter_permis',
+      'coffee',
+    );
+
+    $enabled = $this->enabledModules($modules);
+
+
+    $this->assertTrue(
+      empty($enabled),
+      array(
+        'pass' => 'No developer module enabled.',
+        'fail' => format_plural(count($enabled), 'Developer module <strong>' . implode(', ', $enabled) . '</strong> is enabled.', 'Developer modules <strong>' . implode(', ', $enabled) . '</strong> are enabled.')
+      ),
+      'Developer Modules'
+    );
+  }
+
+  /**
+   * Check if examples modules are disabled.
+   */
+  public function testExampleModules() {
+    $modules = array(
+      'ctools_ajax_sample', 'action_example', 'ajax_example', 'batch_example',
+      'block_example', 'cache_example', 'ctools_plugin_example',
+      'contextual_links_example', 'cron_example', 'dbtng_example', 'deploy_example',
+      'email_example', 'eck_example', 'entity_example', 'entityreference_behavior_example',
+      'examples', 'field_example', 'field_permission_example', 'file_example',
+      'filter_example', 'form_example', 'image_example', 'js_example', 'menu_example',
+      'node_access_example', 'node_example', 'nodeapi_example', 'page_example',
+      'pager_example', 'queue_example', 'rdf_example', 'render_example', 'simpletest_example',
+      'tablesort_example', 'tabledrag_example', 'theming_example', 'token_example',
+      'trigger_example', 'uuid_default_entities_example', 'uuid_services_example',
+      'vertical_tabs_example', 'xmlrpc_example',
+    );
+
+    $enabled = $this->enabledModules($modules);
+
+
+    $this->assertTrue(
+      empty($enabled),
+      array(
+        'pass' => 'No example module enabled.',
+        'fail' => format_plural(count($enabled), 'Example module <strong>' . implode(', ', $enabled) . '</strong> is enabled.', 'Example modules <strong>' . implode(', ', $enabled) . '</strong> are enabled.')
+      ),
+      'Examples Modules'
+    );
+
+    // @TODO: Write sql query to get all *example* modules; Remove modules which are
+    // already part of the previous list.
+  }
+
+  /**
+   * Check if any module is disabled but pending uninstallation.
+   */
+  public function testModulesPendingUninstall() {
+    include_once DRUPAL_ROOT . '/includes/install.inc';
+
+    $disabled_modules = db_query(
+      "SELECT name FROM {system} WHERE type = 'module' AND status = 0 AND schema_version > :schema_uninstalled",
+      array(':schema_uninstalled' => SCHEMA_UNINSTALLED)
+    )->fetchCol();
+
+    $this->assertTrue(
+      count($disabled_modules) == 0,
+      array(
+        'pass' => 'No module pending uninstall',
+        'fail' => format_plural(count($disabled_modules), 'Module <strong>' . implode(', ', $disabled_modules) . '</strong> is pending uninstall.', 'Modules <strong>' . implode(', ', $disabled_modules) . '</strong> are pending uninstall.'),
+      ),
+      'Uninstalled modules'
+    );
+  }
+
+  /**
+   * Check if ayy module is pending database update.
+   */
+  public function testModulesPendingDatabaseUpdate() {
+    include_once DRUPAL_ROOT . '/includes/update.inc';
+    include_once DRUPAL_ROOT . '/includes/install.inc';
+
+    drupal_load_updates();
+    $updates = update_get_update_list();
+
+    $this->assertTrue(
+      empty($updates),
+      array(
+        'pass' => 'No module pending database update.',
+        'fail' => format_plural(count($updates), 'Module <strong>' . implode(', ', array_keys($updates)) . '</strong> is pending database update.', 'Modules <strong>' . implode(', ', array_keys($updates)) . '</strong> are pending database updates.'),
+      ),
+      'Pending database update'
+    );
+  }
+
+  /**
+   * Test if any module uses dev/rc/alpha/beta version.
+   */
+  public function testModulesStability() {
+    $modules = db_query("SELECT name, info FROM {system} WHERE status = 1 AND type = 'module'")->fetchAllKeyed();
+
+    // Information are serialized in the database.
+    array_walk($modules, function(&$item) {
+      $item = unserialize($item);
+    });
+
+    // Filter modules to find dev/alpha/beta versions.
+    $unsecure = array_filter($modules, function($item) {
+      preg_match("/(?:beta|dev|alpha|rc)/", $item['version'], $out);
+      return (!empty($out));
+    });
+
+    // Prepare output.
+    $modules = array();
+    foreach ($unsecure as $name => $module) {
+      $modules[] = $name . ' (' . $module['version'] . ')';
+    }
+
+    $this->assertTrue(
+      empty($unsecure),
+      array(
+        'pass' => 'No enabled modules use an unsecure version (dev, alpha or beta).',
+        'fail' => format_plural(count($modules), 'Module <strong>' . implode(', ', $modules) . '</strong> uses an unsecure version (dev, alpha or beta).', 'Modules <strong>' . implode(', ', $modules) . '</strong> use an unsecure version (dev, alpha or beta).'),
+      ),
+      'Unsecure modules'
+    );
+  }
+
+  /**
+   * Helper function to check if a list of modules is enabled. It returns only
+   * the enabled modules.
+   *
+   * @see module_exists().
+   */
+  protected function enabledModules($modules) {
+    $enabled = array();
+    foreach ($modules as $module) {
+      if (module_exists($module)) {
+        $enabled = array($module);
+      }
+    }
+
+    return $enabled;
+  }
+}
